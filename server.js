@@ -1,11 +1,12 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const passport = require('passport');
-const authJwtController = require('./auth_jwt'); // You're not using authController, consider removing it
+const authJwtController = require('./auth_jwt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const User = require('./Users');
-const Movie = require('./Movies'); // You're not using Movie, consider removing it
+const Movie = require('./Movies');
 
 const app = express();
 app.use(cors());
@@ -69,10 +70,72 @@ router.post('/signin', async (req, res) => { // Use async/await
 
 router.route('/movies')
     .get(authJwtController.isAuthenticated, async (req, res) => {
-        return res.status(500).json({ success: false, message: 'GET request not supported' });
+        try {
+            const movies = await Movie.find();
+            res.status(200).json(movies);
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
     })
     .post(authJwtController.isAuthenticated, async (req, res) => {
-        return res.status(500).json({ success: false, message: 'POST request not supported' });
+        const { title, releaseDate, genre, actors } = req.body;
+
+        if (!title || !releaseDate || !genre || !actors || actors.length < 3) {
+            return res.status(400).json({
+                success: false,
+                message: 'Movie must include title, releaseDate, genre, and at least three actors.'
+            });
+        }
+
+        try {
+            const movie = new Movie({ title, releaseDate, genre, actors });
+            await movie.save();
+            res.status(201).json({ success: true, movie });
+        } catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    })
+    .put(authJwtController.isAuthenticated, (req, res) => {
+        res.status(405).json({ success: false, message: 'HTTP method not supported.' });
+    })
+    .delete(authJwtController.isAuthenticated, (req, res) => {
+        res.status(405).json({ success: false, message: 'HTTP method not supported.' });
+    });
+
+router.route('/movies/:movieparameter')
+    .get(authJwtController.isAuthenticated, async (req, res) => {
+        try {
+            const movie = await Movie.findOne({ title: req.params.movieparameter });
+            if (!movie) return res.status(404).json({ success: false, message: 'Movie not found.' });
+            res.status(200).json(movie);
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
+    })
+    .post(authJwtController.isAuthenticated, (req, res) => {
+        res.status(405).json({ success: false, message: 'HTTP method not supported.' });
+    })
+    .put(authJwtController.isAuthenticated, async (req, res) => {
+        try {
+            const movie = await Movie.findOneAndUpdate(
+                { title: req.params.movieparameter },
+                req.body,
+                { new: true, runValidators: true }
+            );
+            if (!movie) return res.status(404).json({ success: false, message: 'Movie not found.' });
+            res.status(200).json({ success: true, movie });
+        } catch (err) {
+            res.status(400).json({ success: false, message: err.message });
+        }
+    })
+    .delete(authJwtController.isAuthenticated, async (req, res) => {
+        try {
+            const movie = await Movie.findOneAndDelete({ title: req.params.movieparameter });
+            if (!movie) return res.status(404).json({ success: false, message: 'Movie not found.' });
+            res.status(200).json({ success: true, message: 'Movie deleted.' });
+        } catch (err) {
+            res.status(500).json({ success: false, message: err.message });
+        }
     });
 
 app.use('/', router);
