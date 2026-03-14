@@ -9,7 +9,7 @@ const User = require('./Users');
 const Movie = require('./Movies');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
